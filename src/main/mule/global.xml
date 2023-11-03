@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:os="http://www.mulesoft.org/schema/mule/os"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:secure-properties="http://www.mulesoft.org/schema/mule/secure-properties"
+	xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+http://www.mulesoft.org/schema/mule/secure-properties http://www.mulesoft.org/schema/mule/secure-properties/current/mule-secure-properties.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd">
+	<salesforce:sfdc-config name="Salesforce_Config" doc:name="Salesforce Config" doc:id="8b03146a-da3a-45fb-b75d-52bcc38140e9" >
+		<salesforce:basic-connection username="${secure::username}" password="${secure::password}" securityToken="${secure::securitytoken}" />
+	</salesforce:sfdc-config>
+	<http:request-config name="HTTP_Request" doc:name="HTTP Request configuration" doc:id="a130bc45-95aa-4abc-b053-2920366ecdcc" >
+		<http:request-connection host="ic-db-sapi-proxy.us-e2.cloudhub.io" port="80"/>
+	</http:request-config>
+	
+	<configuration-properties doc:name="Configuration properties" doc:id="cdf1e928-1fc6-450f-821c-1e3f55ae5507" file="properties\config.yaml" />
+	<secure-properties:config name="Secure_Properties_Config" doc:name="Secure Properties Config" doc:id="c5cf7fd7-0d18-45b0-a0ee-542840524cae" file="properties\config.yaml" key="password12345678" />
+	<db:config name="Database_Config" doc:name="Database Config" doc:id="4e65f293-229d-4d17-ae7e-c9ca67374bc4" >
+		<db:my-sql-connection host="${secure::host}" port="${port}" user="${user}" password="${secure::dbpassword}" database="${database}" />
+	</db:config>
+	<configuration doc:name="Configuration" doc:id="fa8053ce-5616-4a83-8e5a-a318801059f7" defaultErrorHandler-ref="Error_Handler" />
+	<os:object-store name="Object_store" doc:name="Object store" doc:id="44be64db-5fac-4bf0-b1c5-c9f770199467" />
+
+		</mule>

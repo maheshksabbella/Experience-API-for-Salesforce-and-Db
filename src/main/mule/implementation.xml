@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	
+	<flow name="SyncNewRecordToDbFlow" doc:id="5187ec74-375a-4a79-82a6-7e60572f0a66" >
+		<logger level="INFO" doc:name="Logger" doc:id="7a96322b-0a78-469a-8afc-0a4c155451b4" message="#[payload]" />
+		<ee:transform doc:name="Transform Message" doc:id="e505bf9f-b1e6-4546-a8b9-57ec15c384de" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"email": payload.Email,
+	"first_name": payload.FirstName,
+	"last_name": payload.LastName,
+	"mailing_city": payload.MailingCity,
+	"mailing_country": payload.MailingCountry,
+	"mailing_postal_code": payload.MailingPostalCode,
+	"mailing_state": payload.MailingState,
+	"mailing_street": payload.MailingStreet,
+	"mobile_phone": payload.MobilePhone,
+	"other_city": payload.OtherCity,
+	"other_country": payload.OtherCountry,
+	"other_state": payload.OtherState,
+	"other_street": payload.OtherStreet,
+	"title": payload.Title,
+	"external_id": payload.Id,
+	"sync_new_record_to_sfdc": true,
+	"sync_updated_record_to_sfdc": true
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<http:request method="POST" doc:name="Request" doc:id="80b24804-4ec0-447d-8880-342018a1c939" config-ref="HTTP_Request" path="/contacts" followRedirects="true" sendBodyMode="ALWAYS" requestStreamingMode="ALWAYS">
+			<http:headers><![CDATA[#[{
+	"client_id" : "502eec4cfec74bd79a11371b902fd095",
+	"client_secret" : "442B9a34Cd1640D4973735455f92df3b",
+	"x-correlation-id": "jhvxk6"
+}]]]></http:headers>
+		</http:request>
+		<logger level="INFO" doc:name="Logger" doc:id="590b2244-53a3-4b87-ad14-4ce8127a9d75" message="#[payload]" />
+	</flow>
+</mule>

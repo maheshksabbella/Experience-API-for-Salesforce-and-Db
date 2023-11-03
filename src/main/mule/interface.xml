@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:os="http://www.mulesoft.org/schema/mule/os" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="2f8af971-3cac-4b1b-9978-8293d51349f8" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<flow name="NewContactTriggerFlow" doc:id="6501175d-b826-45e6-9c5a-10a5da97d29b" >
+		<salesforce:new-object-listener objectType="Contact" doc:name="On New Object" doc:id="b258b1bd-b78c-49be-abb8-b5699a3ec5d0" config-ref="Salesforce_Config">
+			<scheduling-strategy >
+				<fixed-frequency frequency="10" timeUnit="SECONDS" />
+			</scheduling-strategy>
+		</salesforce:new-object-listener>
+		<flow-ref doc:name="Flow Reference" doc:id="18061aee-6566-49f8-b9e5-8821af7382ce" name="SyncNewRecordToDbFlow"/>
+		<logger level="INFO" doc:name="Logger" doc:id="a70cd83d-e9b9-47e3-b448-2f4e79d8d0c8" message="#[payload]"/>
+	</flow>
+	<flow name="UpdateContactTriggerFlow" doc:id="3129c229-e94b-4fe0-91cb-3534fe800ad0" >
+		<salesforce:modified-object-listener objectType="Contact" doc:name="On Modified Object" doc:id="5e6e01a5-8c99-4211-b370-0d21ae15bbe9" config-ref="Salesforce_Config">
+			<scheduling-strategy >
+				<fixed-frequency frequency="10" timeUnit="SECONDS"/>
+			</scheduling-strategy>
+		</salesforce:modified-object-listener>
+		<logger level="INFO" doc:name="Logger" doc:id="fc2cafa0-b0ec-4452-af9a-29d843f722a8" message="#[payload]"/>
+		<error-handler ref="Error_Handler" />
+	</flow>
+	<flow name="interfaceFlow" doc:id="f7c963f7-0afd-4b75-b026-71f00172fdf9" >
+		<db:listener doc:name="On Table Row" doc:id="4a39cd1a-6a67-4f54-97e5-56a2f6703834" config-ref="Database_Config" table="contacts" watermarkColumn="Id" idColumn="Id">
+			<scheduling-strategy >
+				<fixed-frequency />
+			</scheduling-strategy>
+		</db:listener>
+		<logger level="INFO" doc:name="Logger" doc:id="24a058f1-fe5d-4b3a-92cc-06a1df294945" message="#[%dw 2.0 output application/json --- payload]"/>
+	</flow>
+	<flow name="NewRecordDbTrigger" doc:id="9e930f6d-b68c-4e5d-8304-5df4655df499" initialState="stopped">
+		<scheduler doc:name="Scheduler" doc:id="573083b8-e08c-4aaf-a784-1f015eeb650a" >
+			<scheduling-strategy >
+				<fixed-frequency />
+			</scheduling-strategy>
+		</scheduler>
+		<os:retrieve doc:name="Retrieve" doc:id="426e049f-50bf-4e8c-82e4-122c1533cc57" key="id" objectStore="Object_store">
+			<os:default-value ><![CDATA[#[0]]]></os:default-value>
+		</os:retrieve>
+		<db:select doc:name="Select" doc:id="7a165e03-f2c4-47df-953c-f53621133294" config-ref="Database_Config">
+			<db:sql ><![CDATA[select * from contacts where Id > :id;]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{
+"id": payload
+}]]]></db:input-parameters>
+		</db:select>
+		<choice doc:name="Choice" doc:id="1991f699-4767-4a81-b094-96060996197b" >
+			<when expression="#[sizeOf(payload)&gt;0]">
+				<os:store doc:name="Store" doc:id="bab6c57b-485a-44cd-9cd0-4bc89f27ba9d" key="id" objectStore="Object_store">
+					<os:value><![CDATA[#[(payload.Id orderBy -$)[0]]]]></os:value>
+				</os:store>
+				<ee:transform doc:name="Transform Message" doc:id="9635d733-3ef4-4522-bae0-0bedc2a10eed">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<logger level="INFO" doc:name="Logger" doc:id="bb1b65d9-4951-4180-afc9-84ded4f40c1e" message="#[payload]" />
+			</when>
+			<otherwise >
+				<logger level="INFO" doc:name="Logger" doc:id="31f4b275-a057-4c76-aa4f-45f7f2029789" message="no records"/>
+			</otherwise>
+		</choice>
+		<error-handler ref="Error_Handler" />
+	</flow>
+	<flow name="UpdaedRecordDbTrigger" doc:id="4695f870-2ecf-445d-b57d-7b08fb08a81c">
+		<scheduler doc:name="Scheduler" doc:id="d9c55aff-c159-44d1-b537-bd4c552402e1" >
+			<scheduling-strategy >
+				<fixed-frequency frequency="2" timeUnit="MINUTES"/>
+			</scheduling-strategy>
+		</scheduler>
+		<os:retrieve doc:name="Retrieve" doc:id="d1a204e6-e332-4837-aeb5-4cfb339f655e" key="lastupdatedDate" objectStore="Object_store" target="lastupdatedDate">
+			<os:default-value ><![CDATA[0000-00-00000:00:00]]></os:default-value>
+		</os:retrieve>
+		<db:select doc:name="Select" doc:id="69334c14-4eb4-458c-8caa-42e17bcbfc71" config-ref="Database_Config">
+			<db:sql ><![CDATA[select * from contacts where UpdatedDate > :lastupdatedDate;]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{
+"lastupdatedDate": vars.lastupdatedDate
+}]]]></db:input-parameters>
+		</db:select>
+		<choice doc:name="Choice" doc:id="97cd0c4e-a266-4054-829a-bc703dc55bd6" >
+			<when expression="#[sizeOf(payload)&gt;0]">
+				<os:store doc:name="Store" doc:id="6967a5ac-d731-432f-a72a-b083c464c2ca" key="lastupdatedDate" objectStore="Object_store">
+					<os:value ><![CDATA[#[max(payload.*UpdatedDate)]]]></os:value>
+				</os:store>
+				<ee:transform doc:name="Transform Message" doc:id="63120a8b-2e98-423e-b69f-eac989d553d7" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+				<logger level="INFO" doc:name="Logger" doc:id="110ce25c-8b9b-4f7c-aa92-6c167a3a8efd" message="#[payload]"/>
+			</when>
+			<otherwise >
+				<logger level="INFO" doc:name="Logger" doc:id="a9070193-d15b-436a-9bd6-26820002b2d2" message="no records"/>
+			</otherwise>
+		</choice>
+		<error-handler ref="Error_Handler" />
+	</flow>
+</mule>
